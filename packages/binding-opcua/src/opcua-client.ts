@@ -29,7 +29,7 @@ import {
 	ClientSubscription,
 	TimestampsToReturn,
 	MonitoringParametersOptions,
-	ReadValueIdLike,
+	ReadValueIdOptions,
 	ClientMonitoredItem,
 	DataType,
 	DataValue,
@@ -59,7 +59,7 @@ export default class OpcuaClient implements ProtocolClient {
 				maxRetry: 1
 			},
 			requestedSessionTimeout: 10000,
-			endpoint_must_exist: false
+			endpointMustExist: false
 		}
 		if (_config) {
 			this.config = _config;
@@ -323,7 +323,7 @@ export default class OpcuaClient implements ProtocolClient {
 					subscription = ClientSubscription.create(self.session, defaultSubscriptionOptions);
 				}
 
-				const itemToMonitor: ReadValueIdLike = {
+				const itemToMonitor: ReadValueIdOptions = {
 					nodeId: nodeId,
 					attributeId: AttributeIds.Value
 				};
