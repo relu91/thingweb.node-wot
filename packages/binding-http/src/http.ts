@@ -28,6 +28,7 @@ export * from './https-client-factory'
 export interface HttpConfig {
     port?: number;
     address?: string;
+    baseUri?: string;
     proxy?: HttpProxyConfig;
     allowSelfSigned?: boolean;
     serverKey?: string;
@@ -59,6 +60,6 @@ export class HttpForm extends TD.Form {
 export type HTTPMethodName = "GET" | "PUT" | "POST" | "DELETE" | "PATCH";
 
 export class HttpHeader {
-    public "htv:fieldName": number;
-    public "htv:fieldValue": any;
+    public "htv:fieldName": string;
+    public "htv:fieldValue": string;
 }
