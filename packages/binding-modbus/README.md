@@ -91,6 +91,12 @@ Along with content type `application/octet-stream`, also an optional `byteSeq` p
 - `BIG_ENDIAN_BYTE_SWAP`
 - `LITTLE_ENDIAN_BYTE_SWAP`
 
+Here you find an example of what to send in order to pass `42` to the MODBUS binding:
+- `BIG_ENDIAN`: `00 2A`
+- `LITTLE_ENDIAN`: `2A 00`
+- `BIG_ENDIAN_BYTE_SWAP`: `2A 00`
+- `LITTLE_ENDIAN_BYTE_SWAP`: `00 2A`
+
 For register properties the payload is just the plain sequence of bytes read from or written to the registers. For coils and discrete inputs, the payload is a sequence of bytes, each corresponding to a single coil or discrete input. Each byte contains the value `0` or `1`. So the encoder / decoder should work on this series of bytes and does not have to take care about handling the individual bits. Mapping each coil or discrete input to a single property of type `boolean` works just fine!
 
 ## Security 
