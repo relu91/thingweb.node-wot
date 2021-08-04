@@ -31,7 +31,7 @@ import MqttsClientFactory from "../src/mqtts-client-factory";
 @suite("MQTT implementation")
 class MqttClientSubscribeTest {
 
-    @test(timeout(10000)) "should expose via broker"(done: Function) {
+    @test(timeout(5000)) "should expose via broker"(done: Function) {
 
         try {
             let servient = new Servient();
@@ -68,32 +68,25 @@ class MqttClientSubscribeTest {
                         WoT.consume(thing.getThingDescription()).then(
                             (client) => {
                                 let check = 0;
-                                let eventReceived = false;
-                   
                                 client
                                     .subscribeEvent(eventName, (x) => {
-                                        if(!eventReceived) {
-                                            counter = 0;
-                                            eventReceived = true;
-                                        } else {
-                                            expect(x).to.equal(++check);
-                                            if (check === 3) {
-                                                done();
-                                            }
+                                        expect(x).to.equal(++check);
+                                        if (check === 3) {
+                                            done();
                                         }
                                     })
                                     .then(() => {})
                                     .catch((e) => {
                                         expect(true).to.equal(false);
                                     });
-                            
+
                                 var job = setInterval(() => {
                                     ++counter;
                                     thing.emitEvent(eventName, counter);
-                                    if (eventReceived && counter === 3) {
+                                    if (counter === 3) {
                                         clearInterval(job);
                                     }
-                                }, 1000);
+                                }, 400);
                             }
                         );
                     });
