@@ -20,6 +20,7 @@ import { ThingModel } from "wot-thing-model-types";
 
 import { ThingModelHelpers, CompositionOptions, modelComposeInput } from "../src/thing-model-helpers";
 import { promises as fs } from "fs";
+import { ExposedThingInit } from "wot-typescript-definitions";
 @suite("tests to verify the Thing Model Helper")
 class ThingModelHelperTest {
     private thingModelHelpers: ThingModelHelpers;
@@ -207,7 +208,6 @@ class ThingModelHelperTest {
         const finalJSON = await fs.readFile("test/thing-model/tmodels/SmartLampControlImported.jsonld");
         const model = JSON.parse(modelJSON.toString()) as ThingModel;
         const finalModel = JSON.parse(finalJSON.toString()) as ThingModel;
-        // const validated = ThingModelHelpers.validateExposedThingModelInit(model);
         // eslint-disable-next-line dot-notation
         const modelInput = await this.thingModelHelpers["fetchAffordances"](model);
         // eslint-disable-next-line dot-notation
@@ -448,5 +448,172 @@ class ThingModelHelperTest {
         const validated = this.thingModelHelpers["checkPlaceholderMap"](thing, options.map);
         expect(validated.valid).to.be.false;
         expect(validated.errors).to.be.equal(`Missing required fields in map for model ${thing.title}`);
+    }
+
+    @test async "should correctly check if a ThingDescription implements a Thing Model with required fields"() {
+        const thingModel: ThingModel = {
+            "@context": ["http://www.w3.org/ns/td"],
+            "@type": "tm:ThingModel",
+            title: "Lamp Thing Model",
+            description: "Lamp Thing Description Model",
+            "tm:required": ["#/properties/status", "#/actions/toggle"],
+            properties: {
+                status: {
+                    description: "current status of the lamp (on|off)",
+                    type: "string",
+                    readOnly: true,
+                },
+            },
+            actions: {
+                toggle: {
+                    description: "Turn the lamp on or off",
+                },
+            },
+            events: {
+                overheating: {
+                    description: "Lamp reaches a critical temperature (overheating)",
+                    data: { type: "string" },
+                },
+            },
+        };
+
+        const finalThingModel = {
+            title: "thingTest",
+            "@context": ["http://www.w3.org/ns/td"],
+            "@type": ["random:Type", "tm:ThingModel"],
+            properties: {
+                status: {
+                    type: "string",
+                    description: "This is a description",
+                },
+            },
+            actions: {
+                toggle: {
+                    type: "boolean",
+                    description: "Turn the lamp on or off",
+                },
+            },
+            links: [
+                {
+                    rel: "type",
+                    href: "./thingTest.tm.jsonld",
+                    type: "application/tm+json",
+                },
+            ],
+        };
+
+        const res = this.thingModelHelpers.implements(finalThingModel as ExposedThingInit, thingModel);
+        expect(res).to.be.true;
+
+        const finalThingModel1 = {
+            title: "thingTest",
+            "@context": ["http://www.w3.org/ns/td"],
+            "@type": ["random:Type", "tm:ThingModel"],
+            properties: {
+                status: {
+                    type: "string",
+                    description: "This is a description",
+                },
+            },
+            actions: {
+                toggle1: {
+                    type: "boolean",
+                    description: "Turn the lamp on or off",
+                },
+            },
+            links: [
+                {
+                    rel: "type",
+                    href: "./thingTest.tm.jsonld",
+                    type: "application/tm+json",
+                },
+            ],
+        };
+
+        const res1 = this.thingModelHelpers.implements(finalThingModel1 as ExposedThingInit, thingModel);
+        expect(res1).to.be.false;
+    }
+
+    @test
+    async "should correctly check if a ThingDescription implements a Thing Model respecting the original affordances types"() {
+        const thingModel: ThingModel = {
+            "@context": ["http://www.w3.org/ns/td"],
+            "@type": "tm:ThingModel",
+            title: "Lamp Thing Model",
+            description: "Lamp Thing Description Model",
+            properties: {
+                status: {
+                    description: "current status of the lamp (on|off)",
+                    type: "string",
+                    readOnly: true,
+                },
+            },
+            actions: {
+                toggle: {
+                    description: "Turn the lamp on or off",
+                },
+            },
+            events: {
+                overheating: {
+                    description: "Lamp reaches a critical temperature (overheating)",
+                    data: { type: "string" },
+                },
+            },
+        };
+
+        const finalThingModel = {
+            title: "thingTest",
+            "@context": ["http://www.w3.org/ns/td"],
+            "@type": ["random:Type", "tm:ThingModel"],
+            properties: {
+                status: {
+                    type: "string",
+                    description: "This is a description",
+                },
+            },
+            actions: {
+                toggle: {
+                    type: "boolean",
+                    description: "Turn the lamp on or off",
+                },
+            },
+            links: [
+                {
+                    rel: "type",
+                    href: "./thingTest.tm.jsonld",
+                    type: "application/tm+json",
+                },
+            ],
+        };
+
+        const res = this.thingModelHelpers.implements(finalThingModel as ExposedThingInit, thingModel);
+        expect(res).to.be.true;
+
+        const finalThingModel1 = {
+            title: "thingTest",
+            "@context": ["http://www.w3.org/ns/td"],
+            "@type": ["random:Type", "tm:ThingModel"],
+            properties: {
+                status: {
+                    type: "boolean",
+                    description: "This is a random description",
+                },
+            },
+            actions: {
+                toggle1: {
+                    description: "Turn the lamp on or off",
+                },
+            },
+            links: [
+                {
+                    rel: "type",
+                    href: "./thingTest.tm.jsonld",
+                    type: "application/tm+json",
+                },
+            ],
+        };
+
+        const res1 = this.thingModelHelpers.implements(finalThingModel1 as ExposedThingInit, thingModel);
+        expect(res1).to.be.false;
     }
 }

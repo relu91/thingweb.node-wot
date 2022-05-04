@@ -210,6 +210,57 @@ export class ThingModelHelpers {
         return tm;
     }
 
+    public implements(td: ExposedThingInit, tm: ThingModel): boolean {
+        let requiredAffordances = null;
+        // check if the td contains the required fields
+        if ("tm:required" in tm) {
+            requiredAffordances = tm["tm:required"];
+            for (const el of requiredAffordances) {
+                const splitString = el.split("/");
+                const splitStringLength = splitString.length;
+                const affordanceType = splitString[splitStringLength - 2];
+                const affordanceName = splitString[splitStringLength - 1];
+                if (!(affordanceType in td) || !(affordanceName in (td[affordanceType] as Record<string, unknown>))) {
+                    console.error("[thing-model-helpers]", `Required affordance ${affordanceName} missing in TD`);
+                    return false;
+                }
+            }
+        }
+
+        // check if the td respects the original types for affordances
+        const affordanceTypes = ["properties", "actions", "events"];
+        for (const affordanceType of affordanceTypes) {
+            if (!(affordanceType in td)) {
+                continue;
+            }
+            const affordances = td[affordanceType] as Record<string, unknown>;
+            const affordanceNames = Object.keys(affordances);
+            for (const affordanceName of affordanceNames) {
+                if (!(affordanceType in tm)) {
+                    continue;
+                }
+                if (!(affordanceName in (tm[affordanceType] as Record<string, unknown>))) {
+                    continue;
+                }
+                const tmAff = (tm[affordanceType] as Record<string, DataSchema>)[affordanceName];
+                const tdAff = (td[affordanceType] as Record<string, DataSchema>)[affordanceName];
+                // tm affordance is missing type
+                if (!("type" in tmAff)) {
+                    continue;
+                }
+                // td affordance is missing type
+                if (!("type" in tdAff)) {
+                    return false;
+                }
+                // affordances types do not match
+                if (tdAff.type !== tmAff.type) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     private localFetch(uri: string): unknown {
         const proto = uri.split("://")[0];
         switch (proto) {
@@ -236,7 +287,7 @@ export class ThingModelHelpers {
                         res.on("end", () => {
                             try {
                                 const parsedData = JSON.parse(rawData);
-                                console.debug("[td-tools]", "http fetched:", parsedData);
+                                console.debug("[thing-model-helpers]", "http fetched:", parsedData);
                                 resolve(parsedData);
                             } catch (e) {
                                 console.error(e.message);
@@ -259,7 +310,7 @@ export class ThingModelHelpers {
                             res.on("end", () => {
                                 try {
                                     const parsedData = JSON.parse(rawData);
-                                    console.debug("[td-tools]", "https fetched:", parsedData);
+                                    console.debug("[thing-model-helpers]", "https fetched:", parsedData);
                                     resolve(parsedData);
                                 } catch (e) {
                                     console.error(e.message);
@@ -533,10 +584,10 @@ export class ThingModelHelpers {
 
     private parseTmRef(value: string): ModelImportsInput {
         const thingModelUri = value.split("#")[0];
-        const affordaceUri = value.split("#")[1];
-        const affordaceType = affordaceUri.split("/")[1] as AFFORDANCE_TYPE;
-        const affordaceName = affordaceUri.split("/")[2];
-        return { uri: thingModelUri, type: affordaceType, name: affordaceName };
+        const affordanceUri = value.split("#")[1];
+        const affordanceType = affordanceUri.split("/")[1] as AFFORDANCE_TYPE;
+        const affordanceName = affordanceUri.split("/")[2];
+        return { uri: thingModelUri, type: affordanceType, name: affordanceName };
     }
 
     private getRefAffordance(obj: ModelImportsInput, thing: ThingModel): DataSchema {
