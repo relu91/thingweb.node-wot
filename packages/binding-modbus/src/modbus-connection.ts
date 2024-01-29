@@ -99,7 +99,7 @@ class ModbusTransaction {
                 debug(`Got result from read operation on ${this.base}, len: ${this.quantity}`);
                 this.operations.forEach((op) => op.done(this.base, result.buffer));
             } catch (err) {
-                warn(`Read operation failed on ${this.base}, len: ${this.quantity}, ${err}`);
+                warn(`Read operation failed on ${this.base}, len: ${this.quantity}, ${inspect(err)}`);
                 // inform all operations and the invoker
                 this.operations.forEach((op) => op.failed(err instanceof Error ? err : new Error(JSON.stringify(err))));
                 throw err;
@@ -110,7 +110,7 @@ class ModbusTransaction {
                 await this.connection.writeModbus(this);
                 this.operations.forEach((op) => op.done());
             } catch (err) {
-                warn(`Write operation failed on ${this.base}, len: ${this.quantity}, ${err}`);
+                warn(`Write operation failed on ${this.base}, len: ${this.quantity}, ${inspect(err)}`);
                 // inform all operations and the invoker
                 this.operations.forEach((op) => op.failed(err instanceof Error ? err : new Error(JSON.stringify(err))));
                 throw err;
@@ -252,7 +252,9 @@ export class ModbusConnection {
                     return;
                 } catch (err) {
                     warn(
-                        `Cannot connect to ${this.host}. Reason: ${err}. Retry in ${this.config.connectionRetryTime}ms.`
+                        `Cannot connect to ${this.host}. Reason: ${inspect(err)}. Retry in ${
+                            this.config.connectionRetryTime
+                        }ms.`
                     );
                     this.connecting = false;
                     if (retry >= this.config.maxRetries - 1) {
@@ -300,7 +302,7 @@ export class ModbusConnection {
                 this.currentTransaction = null;
                 this.trigger();
             } catch (err) {
-                warn(`Transaction failed. ${err}`);
+                warn(`Transaction failed. ${inspect(err)}`);
                 this.currentTransaction = null;
                 this.trigger();
             }
@@ -420,7 +422,7 @@ export class ModbusConnection {
                 debug("Session closed");
                 this.connecting = false;
             } else {
-                error(`Cannot close session. ${err}`);
+                error(`Cannot close session. ${inspect(err)}`);
             }
         });
         this.timer && clearInterval(this.timer);
@@ -522,7 +524,7 @@ export class PropertyOperation {
      * @param reason Reason of failure
      */
     failed(reason: Error): void {
-        warn(`Operation failed: ${reason}`);
+        warn(`Operation failed: ${reason.name} ${reason.message ?? "No message"}`);
         if (!this.reject) {
             throw new Error("Function 'failed' was invoked before executing the Modbus operation");
         }
