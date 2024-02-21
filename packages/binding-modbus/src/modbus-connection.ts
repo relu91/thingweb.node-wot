@@ -152,6 +152,8 @@ export class ModbusConnection {
         maxRetries: number;
     };
 
+    closeFailed: boolean;
+
     constructor(
         host: string,
         port: number,
@@ -170,6 +172,7 @@ export class ModbusConnection {
         this.timer = null;
         this.currentTransaction = null;
         this.queue = new Array<ModbusTransaction>();
+        this.closeFailed = false;
 
         this.config = Object.assign(configDefaults, config);
     }
@@ -274,6 +277,14 @@ export class ModbusConnection {
      */
     async trigger(): Promise<void> {
         warn("trigger");
+        if (this.closeFailed) {
+            // Connection close failed, forcing a reconnect
+            this.connecting = false;
+            this.closeFailed = false;
+            this.client = new ModbusRTU();
+            warn("Previous connection close failed, forcing a reconnect");
+        }
+
         if (!this.connecting && !this.client.isOpen) {
             // connection may be closed due to operation timeout
             // try to reconnect again
@@ -423,6 +434,7 @@ export class ModbusConnection {
                 this.connecting = false;
             } else {
                 error(`Cannot close session. ${err}`);
+                this.closeFailed = true;
             }
         });
         this.timer && clearInterval(this.timer);
