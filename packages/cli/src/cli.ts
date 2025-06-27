@@ -15,7 +15,7 @@
  ********************************************************************************/
 
 // default implementation of W3C WoT Servient (http(s) and file bindings)
-import DefaultServient, { ScriptOptions } from "./cli-default-servient";
+import DefaultServient from "./cli-default-servient";
 
 // tools
 import * as path from "path";
@@ -24,13 +24,14 @@ import Ajv, { ValidateFunction } from "ajv";
 import ConfigSchema from "./generated/wot-servient-schema.conf";
 import version from "./generated/version";
 import { createLoggers } from "@node-wot/core";
-import { loadCompiler, loadEnvVariables } from "./utils";
+import { loadTranspiler, loadEnvVariables } from "./utils";
 import { runScripts } from "./script-runner";
 import { readdir } from "fs/promises";
 import { parseConfigFile, parseConfigParams, parseIp } from "./parsers";
 import { setLogLevel } from "./utils/set-log-level";
 import { buildConfig, buildConfigFromFile, Configuration, defaultConfiguration } from "./configuration";
 import { cloneDeep } from "lodash";
+import { ScriptOptions } from "./executor";
 
 const { error, info, warn, debug } = createLoggers("cli", "cli");
 
@@ -186,7 +187,7 @@ program.action(async function (_, options, cmd) {
     const scriptOptions: ScriptOptions = {
         env,
         argv: args,
-        compiler: loadCompiler(options.compiler),
+        ...(options.compiler != null ? { transpiler: loadTranspiler(options.compiler) } : {}),
     };
 
     if (args.length > 0) {

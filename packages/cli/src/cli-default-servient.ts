@@ -23,22 +23,16 @@ import { HttpServer, HttpClientFactory, HttpsClientFactory } from "@node-wot/bin
 import { CoapServer, CoapClientFactory, CoapsClientFactory } from "@node-wot/binding-coap";
 import { MqttBrokerServer, MqttClientFactory } from "@node-wot/binding-mqtt";
 import { FileClientFactory } from "@node-wot/binding-file";
-import { ThingModelHelpers } from "@thingweb/thing-model";
-import { createContext, Script } from "vm";
-import { CompilerFunction } from "./compiler-function";
 import { LogLevel, setLogLevel } from "./utils/set-log-level";
 import { ConfigurationAfterDefaults } from "./configuration";
+import { Executor, ScriptOptions } from "./executor";
 
-const { debug, error, info } = createLoggers("cli", "cli-default-servient");
+const { debug, info } = createLoggers("cli", "cli-default-servient");
 
-export interface ScriptOptions {
-    argv?: Array<string>;
-    compiler?: CompilerFunction;
-    env?: Record<string, string>;
-}
 export default class DefaultServient extends Servient {
     private uncaughtListeners: Array<NodeJS.UncaughtExceptionListener> = [];
     private runtime: typeof WoT | undefined;
+    private executor = new Executor();
     public readonly config: ConfigurationAfterDefaults;
     // current log level
     public logLevel = "info";
@@ -110,59 +104,8 @@ export default class DefaultServient extends Servient {
         if (!this.runtime) {
             throw new Error("WoT runtime not loaded; have you called start()?");
         }
-        const helpers = new Helpers(this);
 
-        options.compiler ??= (code) => code;
-
-        const compiledCode = options.compiler(code, filename);
-        const script = new Script(compiledCode, filename);
-        process.argv = options.argv ?? [];
-        process.env = options.env ?? process.env;
-        const context = createContext({
-            ...globalThis,
-            process,
-            require,
-            console,
-            exports: {},
-            WoT: this.runtime,
-            WoTHelpers: helpers,
-            ModelHelpers: new ThingModelHelpers(helpers),
-        });
-
-        const listener = (err: Error) => {
-            this.logScriptError(`Asynchronous script error '${filename}'`, err);
-            // TODO: clean up script resources
-            process.exit(1);
-        };
-
-        process.prependListener("uncaughtException", listener);
-        this.uncaughtListeners.push(listener);
-
-        try {
-            return script.runInContext(context, { displayErrors: true });
-        } catch (err) {
-            if (err instanceof Error) {
-                this.logScriptError(`Servient found error in privileged script '${filename}'`, err);
-            } else {
-                error(`Servient found error in privileged script '${filename}' ${err}`);
-            }
-            return undefined;
-        }
-    }
-
-    private logScriptError(description: string, err: Error): void {
-        let message: string;
-        if (typeof err === "object" && err.stack != null) {
-            const match = err.stack.match(/evalmachine\.<anonymous>:([0-9]+:[0-9]+)/);
-            if (Array.isArray(match)) {
-                message = `and halted at line ${match[1]}\n    ${err}`;
-            } else {
-                message = `and halted with ${err.stack}`;
-            }
-        } else {
-            message = `that threw ${typeof err} instead of Error\n    ${err}`;
-        }
-        error(`Servient caught ${description} ${message}`);
+        return this.executor.exec({ code, filename }, { runtime: this.runtime, helpers: new Helpers(this) }, options);
     }
 
     /**

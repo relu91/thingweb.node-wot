@@ -12,24 +12,27 @@
  *
  * SPDX-License-Identifier: EPL-2.0 OR W3C-20150513
  ********************************************************************************/
-import { CompilerFunction } from "../compiler-function";
+import { ScriptOptions } from "../executor";
 
-export function loadCompiler(compilerModule?: string): CompilerFunction {
-    if (compilerModule != null) {
+export function loadTranspiler(transpilerModule?: string): ScriptOptions["transpiler"] {
+    if (transpilerModule != null) {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const compilerMod = require(compilerModule);
+        const loadedTranspilerModule = require(transpilerModule);
 
-        if (compilerMod.create == null) {
-            throw new Error(`No create function defined for ${compilerModule}`);
+        if (loadedTranspilerModule.create == null) {
+            throw new Error(`No create function defined for ${transpilerModule}`);
         }
 
-        const compilerObject = compilerMod.create();
+        const transpilerObject = loadedTranspilerModule.create();
 
-        if (compilerObject.compile == null) {
+        if (transpilerObject.compile == null) {
             throw new Error("No compile function defined for create return object");
         }
 
-        return compilerObject.compile;
+        return { register: loadedTranspilerModule.register, compiler: transpilerObject.compile };
     }
-    return (code) => code;
+
+    return {
+        compiler: (code) => code,
+    };
 }
