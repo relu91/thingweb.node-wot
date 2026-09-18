@@ -12,8 +12,19 @@
  *
  * SPDX-License-Identifier: EPL-2.0 OR W3C-20150513
  ********************************************************************************/
-export * from "./abstract-client-factory";
-export * from "./binding-client-factory";
-export * from "./binding-client";
-export * from "./binding-connection";
-export * from "./binding-subscription";
+import { BindingClient, BindingClientFactory } from "@node-wot/core";
+import { SecurityScheme } from "wot-thing-description-types";
+import SSEClient from "./sse-client";
+
+const baseSchemes = ["http", "https"];
+const schemes = baseSchemes.flatMap((s) => [`${s}+sse`]);
+export default class SSEClientFactory implements BindingClientFactory {
+    schemes: string[] = schemes;
+    async getClient(form: WoT.Form, security: SecurityScheme[], credentials: unknown): Promise<BindingClient> {
+        // TODO: setting security is unsupported for SSEClient.
+        return new SSEClient();
+    }
+    async destroy(): Promise<void> {
+        // no operation
+    }
+}

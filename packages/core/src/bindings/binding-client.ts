@@ -14,8 +14,8 @@
  ********************************************************************************/
 
 import { Form } from "wot-typescript-definitions";
-import { Subscription } from "rxjs/Subscription";
 import { Content } from "../content";
+import { BindingSubscription } from "./binding-subscription";
 
 export interface BindingClient {
     /** Read a resource. The form carries the full URI. */
@@ -30,7 +30,7 @@ export interface BindingClient {
         next: (content: Content) => void,
         error?: (err: Error) => void,
         complete?: () => void
-    ): Promise<Subscription>;
+    ): Promise<BindingSubscription>;
 
     unlinkResource(form: Form): Promise<void>;
 }

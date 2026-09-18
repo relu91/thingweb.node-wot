@@ -1,3 +1,5 @@
+import { HttpProxyConfig } from "../http";
+
 /********************************************************************************
  * Copyright (c) 2026 Contributors to the Eclipse Foundation
  *
@@ -12,8 +14,6 @@
  *
  * SPDX-License-Identifier: EPL-2.0 OR W3C-20150513
  ********************************************************************************/
-export * from "./abstract-client-factory";
-export * from "./binding-client-factory";
-export * from "./binding-client";
-export * from "./binding-connection";
-export * from "./binding-subscription";
+export interface HTTPClientConfig {
+    proxy?: HttpProxyConfig;
+}

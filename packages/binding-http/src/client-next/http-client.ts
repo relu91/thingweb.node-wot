@@ -16,8 +16,6 @@
 import * as http from "http";
 import * as https from "https";
 
-import { Subscription } from "rxjs/Subscription";
-
 import {
     Content,
     ProtocolHelpers,
@@ -29,8 +27,9 @@ import {
     APIKeySecurityScheme,
     OAuth2SecurityScheme,
     BindingClient,
+    BindingSubscription,
 } from "@node-wot/core";
-import { HttpForm, HttpHeader, HttpConfig, HTTPMethodName, TuyaCustomBearerSecurityScheme } from "../http";
+import { HttpForm, HttpHeader, HTTPMethodName, TuyaCustomBearerSecurityScheme } from "../http";
 import fetch, { Request, RequestInit, Response } from "node-fetch";
 import { Buffer } from "buffer";
 import OAuthManager, { OAuthClientConfiguration, OAuthResourceOwnerConfiguration } from "../oauth-manager";
@@ -46,23 +45,26 @@ import {
     TuyaCustomBearer,
     TuyaCustomBearerCredentialConfiguration,
 } from "../credential";
-import { LongPollingSubscription, SSESubscription, InternalSubscription } from "../subscription-protocols";
+import { LongPollingSubscription, InternalSubscription } from "../subscription-protocols";
 import { Readable } from "stream";
+import { HTTPClientConfig } from "./client-config";
 
 const { debug, warn, error } = createLoggers("binding-http", "http-client-impl");
 
 export default class HttpClient implements BindingClient {
     private readonly agent: http.Agent;
-    private readonly provider: "https" | "http";
     private proxyRequest: Request | null = null;
-    private allowSelfSigned = false;
     private oauth: OAuthManager;
 
     private credential: Credential | null = null;
 
     private activeSubscriptions = new Map<string, InternalSubscription>();
 
-    constructor(config: HttpConfig | null = null, secure = false, oauthManager: OAuthManager = new OAuthManager()) {
+    constructor(
+        config: HTTPClientConfig | null = null,
+        agent: http.Agent | https.Agent,
+        oauthManager: OAuthManager = new OAuthManager()
+    ) {
         // config proxy by client side (not from TD)
         if (config !== null && config.proxy && config.proxy.href) {
             this.proxyRequest = new Request(HttpClient.fixLocalhostName(config.proxy.href));
@@ -82,32 +84,9 @@ export default class HttpClient implements BindingClient {
                     warn("HttpClient client configured for bearer proxy auth, but no token given");
                 this.proxyRequest.headers.set("proxy-authorization", "Bearer " + config.proxy.token);
             }
-            // security for hop to proxy
-            if (this.proxyRequest.protocol === "https") {
-                secure = true;
-            }
-
-            debug(
-                `HttpClient using ${secure ? "secure " : ""}proxy ${this.proxyRequest.hostname}:${
-                    this.proxyRequest.port
-                }`
-            );
         }
 
-        // config certificate checks
-        if (config !== null && config.allowSelfSigned !== undefined) {
-            this.allowSelfSigned = config.allowSelfSigned;
-            warn(`HttpClient allowing self-signed/untrusted certificates -- USE FOR TESTING ONLY`);
-        }
-
-        // using one client impl for both HTTP and HTTPS
-        this.agent = secure
-            ? new https.Agent({
-                  rejectUnauthorized: !this.allowSelfSigned,
-              })
-            : new http.Agent();
-
-        this.provider = secure ? "https" : "http";
+        this.agent = agent;
         this.oauth = oauthManager;
     }
 
@@ -156,7 +135,7 @@ export default class HttpClient implements BindingClient {
         next: (value: Content) => void,
         error?: (error: Error) => void,
         complete?: () => void
-    ): Promise<Subscription> {
+    ): Promise<BindingSubscription> {
         const defaultSubprotocol = "longpoll";
         let subprotocol = form.subprotocol;
 
@@ -168,18 +147,13 @@ export default class HttpClient implements BindingClient {
         let internalSubscription: InternalSubscription;
         if (subprotocol === defaultSubprotocol) {
             internalSubscription = new LongPollingSubscription(form, this);
-        } else if (form.subprotocol === "sse") {
-            // server sent events
-            internalSubscription = new SSESubscription(form);
         } else {
             throw new Error(`HttpClient does not support subprotocol ${form.subprotocol}`);
         }
 
         await internalSubscription.open(next, error, complete);
         this.activeSubscriptions.set(form.href, internalSubscription);
-        return new Subscription(() => {
-            internalSubscription.close();
-        });
+        return internalSubscription;
     }
 
     public async invokeResource(form: HttpForm, content?: Content): Promise<Content> {
@@ -216,15 +190,8 @@ export default class HttpClient implements BindingClient {
         return new Content(result.headers.get("content-type") ?? ContentSerdes.DEFAULT, body);
     }
 
-    public async unlinkResource(form: HttpForm): Promise<void> {
-        debug(`HttpClient (unlinkResource) ${form.href}`);
-        const internalSub = this.activeSubscriptions.get(form.href);
-
-        if (internalSub) {
-            internalSub.close();
-        } else {
-            warn(`HttpClient cannot unlink ${form.href} no subscription found`);
-        }
+    public async unlinkResource(): Promise<void> {
+        // no operation - no network request should be performed when using http long polling
     }
 
     /**
@@ -238,15 +205,6 @@ export default class HttpClient implements BindingClient {
         const response = await this.doFetch(request);
         const body = ProtocolHelpers.toNodeStream(response.body as Readable);
         return new Content(response.headers.get("content-type") ?? "application/td+json", body);
-    }
-
-    public async start(): Promise<void> {
-        // do nothing
-    }
-
-    public async stop(): Promise<void> {
-        // When running in browser mode, Agent.destroy() might not exist.
-        this.agent?.destroy?.();
     }
 
     public setSecurity(metadata: Array<SecurityScheme>, credentials?: unknown): boolean {

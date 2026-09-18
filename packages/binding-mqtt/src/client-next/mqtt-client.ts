@@ -24,28 +24,26 @@ import {
     ContentSerdes,
     Form,
     BindingClient,
+    BindingSubscription,
 } from "@node-wot/core";
 import { MqttForm } from "../mqtt";
 import * as url from "url";
-import { Subscription } from "rxjs/Subscription";
 import { Readable } from "stream";
 import MQTTConnection from "./mqtt-connection";
 import { mapQoS } from "../util";
 
 const { debug } = createLoggers("binding-mqtt", "mqtt-client");
 
+const NO_OP_SUBSCRIPTION = { close: async () => {} };
 export default class MqttClient implements BindingClient {
-    constructor(
-        private connection: MQTTConnection
-    ) {
-    }
+    constructor(private connection: MQTTConnection) {}
 
     public async subscribeResource(
         form: MqttForm,
         next: (value: Content) => void,
         error?: (error: Error) => void,
         complete?: () => void
-    ): Promise<Subscription> {
+    ): Promise<BindingSubscription> {
         const contentType = form.contentType ?? ContentSerdes.DEFAULT;
         const requestUri = new url.URL(form.href);
         // Keeping the path as the topic for compatibility reasons.
@@ -62,7 +60,7 @@ export default class MqttClient implements BindingClient {
             }
         );
 
-        return new Subscription(() => {});
+        return NO_OP_SUBSCRIPTION;
     }
 
     public async readResource(form: MqttForm): Promise<Content> {
@@ -126,6 +124,6 @@ export default class MqttClient implements BindingClient {
      * @inheritdoc
      */
     public async requestThingDescription(uri: string): Promise<Content> {
-        return this.readResource({href: uri})
+        return this.readResource({ href: uri });
     }
 }

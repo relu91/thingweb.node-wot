@@ -12,19 +12,10 @@
  *
  * SPDX-License-Identifier: EPL-2.0 OR W3C-20150513
  ********************************************************************************/
-import { BindingConnection } from "@node-wot/core";
-import { Agent } from "http";
-
-export default class HTTPConnection implements BindingConnection{
-    private readonly agent: Agent
-    public constructor(public readonly poolKey: string){
-        this.agent = new Agent({})
-    }
-    public isConnected: boolean = true;
-    async connect(): Promise<void> {
-    }
-    async disconnect(): Promise<void> {
-        this.agent.destroy();
-    }
-
+export interface BindingSubscription {
+    /**
+     * Close any local resource. Do not send
+     * the unsubscribe request yet.
+     */
+    close: () => Promise<void> | void;
 }

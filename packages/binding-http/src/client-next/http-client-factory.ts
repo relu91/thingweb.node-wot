@@ -14,15 +14,41 @@
  ********************************************************************************/
 import { BindingClient, BindingClientFactory } from "@node-wot/core";
 import { SecurityScheme } from "wot-thing-description-types";
+import { Agent as HttpAgent } from "http";
+import { Agent as HttpsAgent } from "https";
+import { HttpConfig } from "../http";
+import HttpClient from "./http-client";
 
-const baseSchemes = ['http', 'https']
-const schemes = baseSchemes.flatMap((s)=> [`${s}+longpolling`, `${s}+sse`])
+const baseSchemes = ["http", "https"];
+const schemes = baseSchemes.flatMap((s) => [`${s}+longpolling`]);
+// For http we don't need any particular connection handling as it is done by
+// the underlying agent implementation. In the future we might optimize clients
+// for sse or longpoll.
 export default class HttpClientFactory implements BindingClientFactory {
-    getClient(form: WoT.Form, security: SecurityScheme[], credentials: unknown): Promise<BindingClient> {
-        throw new Error("Method not implemented.");
+    private readonly httpAgent: HttpAgent;
+    private readonly httpsAgent: HttpsAgent;
+
+    constructor(private readonly config: HttpConfig) {
+        this.httpAgent = new HttpAgent({});
+        this.httpsAgent = new HttpsAgent({
+            rejectUnauthorized: !config.allowSelfSigned,
+        });
     }
-    destroy(): Promise<void> {
-        throw new Error("Method not implemented.");
+    public async getClient(form: WoT.Form, security: SecurityScheme[], credentials: unknown): Promise<BindingClient> {
+        // if https -> use https else use http agent.
+        const client = new HttpClient(
+            {
+                proxy: this.config.proxy,
+            },
+            this.httpAgent
+        );
+
+        client.setSecurity(security, credentials);
+        return client;
+    }
+    public async destroy(): Promise<void> {
+        this.httpAgent.destroy();
+        this.httpsAgent.destroy();
     }
     public schemes: string[] = schemes;
 }
